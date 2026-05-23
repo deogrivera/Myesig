@@ -174,11 +174,11 @@ input[type=text]:focus,input[type=email]:focus{outline:none;border-color:var(--a
   font-size:12px;color:var(--muted);line-height:2;margin-bottom:14px;}
 .json-steps strong{color:var(--text);}
 /* ── DOWNLOAD PROMPT ── */
-.dl-modal{display:none;position:fixed;inset:0;background:#000b;z-index:500;
-  align-items:flex-end;justify-content:center;}
+.dl-modal{display:none;position:fixed;inset:0;background:#000d;z-index:500;
+  align-items:flex-start;justify-content:center;overflow-y:auto;padding:12px 8px;}
 .dl-modal.open{display:flex;}
 .dl-sheet{background:var(--surface);border:1px solid var(--border);
-  border-radius:16px 16px 0 0;padding:24px 20px 36px;width:100%;max-width:560px;text-align:center;}
+  border-radius:14px;padding:18px 16px;width:100%;max-width:580px;margin:auto;}
 .dl-icon{font-size:44px;margin-bottom:10px;}
 .dl-title{font-family:'Playfair Display',serif;font-size:18px;color:var(--accent);margin-bottom:6px;}
 .dl-sub{font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:20px;}
@@ -524,21 +524,46 @@ input[type=text]:focus,input[type=email]:focus{outline:none;border-color:var(--a
   </div>
 </div>
 
-<!-- DOWNLOAD PROMPT (iPad Safari) -->
+<!-- PDF VIEWER MODAL (in-app, never navigates away) -->
 <div class="dl-modal" id="dl-modal">
-  <div class="dl-sheet">
-    <div class="dl-icon">📄</div>
-    <div class="dl-title">Signed PDF Ready</div>
-    <div class="dl-sub">Tap the button below to open your signed PDF.<br/>Then tap <strong>Share → Save to Files</strong> to keep it.</div>
-    <span class="dl-filename" id="dl-filename">—</span>
-    <div class="dl-steps">
-      <strong>How to save on iPad:</strong><br/>
-      1. Tap <strong>Open Signed PDF</strong> below<br/>
-      2. Tap the <strong>Share ↑</strong> icon (top right)<br/>
-      3. Tap <strong>Save to Files</strong> → choose folder → <strong>Save</strong>
+  <div class="dl-sheet" style="padding-bottom:20px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <div>
+        <div class="dl-title">✅ Signed PDF Ready</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;" id="dl-filename">—</div>
+      </div>
+      <button onclick="closeDlModal()"
+        style="background:var(--danger);border:none;color:#fff;border-radius:8px;
+               padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;">
+        ✕ Close
+      </button>
     </div>
-    <a class="dl-btn-open" id="dl-open-link" href="#" target="_blank">Open Signed PDF ↗</a>
-    <button class="dl-btn-dismiss" onclick="closeDlModal()">Done / Dismiss</button>
+    <!-- Inline PDF preview via iframe -->
+    <iframe id="pdf-preview-frame"
+      style="width:100%;height:460px;border:1px solid var(--border);border-radius:8px;
+             background:#0d1117;display:block;"
+      src="about:blank">
+    </iframe>
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+      <button onclick="saveSignedPdf()"
+        style="flex:1;min-width:140px;padding:13px;background:var(--accent);color:#111;border:none;
+               border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;
+               font-family:'Lato',sans-serif;">
+        💾 Save to Files
+      </button>
+      <button onclick="closeDlModal()"
+        style="flex:1;min-width:120px;padding:13px;background:var(--card2);color:var(--text);
+               border:1px solid var(--border);border-radius:10px;font-size:13px;font-weight:700;
+               cursor:pointer;font-family:'Lato',sans-serif;">
+        ← Back to App
+      </button>
+    </div>
+    <div style="margin-top:10px;background:var(--card);border-radius:8px;padding:10px 12px;
+                font-size:11px;color:var(--muted);line-height:1.8;">
+      <strong style="color:var(--text);">To save:</strong>
+      Tap <strong>💾 Save to Files</strong> → Safari will download it →
+      find it in <strong>Files app → Downloads</strong>
+    </div>
   </div>
 </div>
 
@@ -1403,20 +1428,41 @@ function closeJsonModal() {
 // DOWNLOAD PROMPT (iPad Safari)
 // ══════════════════════════════════════════
 let _dlBlobUrl = null;
+let _dlFileName = null;
 
 function showDownloadPrompt(blobUrl, fileName) {
-  _dlBlobUrl = blobUrl;
+  _dlBlobUrl   = blobUrl;
+  _dlFileName  = fileName;
   document.getElementById('dl-filename').textContent = fileName;
-  document.getElementById('dl-open-link').href = blobUrl;
+
+  // Load the signed PDF into the iframe — stays inside the app
+  const frame = document.getElementById('pdf-preview-frame');
+  frame.src = blobUrl;
+
   document.getElementById('dl-modal').classList.add('open');
+  // Scroll modal to top
+  document.querySelector('.dl-sheet').scrollTop = 0;
+}
+
+function saveSignedPdf() {
+  if (!_dlBlobUrl) return;
+  // Trigger download without navigating away
+  const a = document.createElement('a');
+  a.href     = _dlBlobUrl;
+  a.download = _dlFileName || 'signed.pdf';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  toast('💾 Saving… check Files app → Downloads');
 }
 
 function closeDlModal() {
   document.getElementById('dl-modal').classList.remove('open');
-  // Keep blob URL alive a bit longer in case user taps Open after dismissing
+  // Clear iframe so it doesn't keep the PDF blob loaded
+  document.getElementById('pdf-preview-frame').src = 'about:blank';
   setTimeout(() => {
     if (_dlBlobUrl) { URL.revokeObjectURL(_dlBlobUrl); _dlBlobUrl = null; }
-  }, 60000);
+  }, 5000);
 }
 
 // ══════════════════════════════════════════
